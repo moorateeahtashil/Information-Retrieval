@@ -2,3 +2,14 @@ cache/
 
 venv/
 __pycache__/
+
+# Generated / caches
+data/processed/
+cache/
+outputs/
+# Usual noise
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
+.env
