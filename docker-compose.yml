@@ -1,0 +1,18 @@
+version: "3.9"
+
+services:
+  preprocess:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ir-eu-regulations:latest
+    volumes:
+      - ./src:/app/src:ro
+      - ./data:/app/data
+      - ./cache/huggingface:/root/.cache/huggingface
+    # Values are pulled from .env at run-time; not stored here.
+    command: >
+      python /app/src/preprocess.py
+      --config ${CONFIG}
+      --auto_stopwords_top ${AUTO_STOPWORDS_TOP}
+      --out_dir ${OUT_DIR}
