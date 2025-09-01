@@ -4,7 +4,6 @@ venv/
 __pycache__/
 
 # Generated / caches
-data/processed/
 cache/
 outputs/
 # Usual noise
