@@ -14,3 +14,18 @@ __pycache__/
 .DS_Store
 .env
 cache/
+# Caches / datasets / artifacts
+cache/
+.cache/
+datasets/
+*.zip
+*.tar
+*.tar.gz
+*.7z
+*.parquet
+*.pt
+*.bin
+*.h5
+*.onnx
+*.pkl
+.ipynb_checkpoints/
