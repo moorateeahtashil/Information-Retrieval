@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-# Step 1: Preprocess EURegIR (uk2eu/eu2uk) with NLTK lemmatization + dynamic stopwords.
-# This version is optimized for performance using datasets.map() for parallel processing.
+# Step 1: Preprocess EURegIR and build an inverted index.
+# This version is optimized for performance and includes indexing logic.
 
 import argparse
 import json
 import os
 import re
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 
@@ -47,10 +47,8 @@ class Preprocessor:
     def _lemmatize_tokens(self, tokens: List[str]) -> List[str]:
         """Lemmatizes tokens, with or without POS tagging."""
         if not self.use_pos_tagging:
-            # Faster method: assumes all words are nouns (a common and effective baseline)
             return [self.wnl.lemmatize(t) for t in tokens]
         
-        # Slower, more accurate method
         tagged = pos_tag(tokens, lang='eng')
         return [self.wnl.lemmatize(t, self._map_pos(p)) for t, p in tagged]
 
@@ -73,9 +71,8 @@ class Preprocessor:
         """Processes a single document/query dictionary for mapping."""
         text = example.get("text", "")
         tokens = self.tokenize_and_lemma(text)
-        # Apply the final stopword list in the same pass
         example['tokens'] = [t for t in tokens if t not in self.stopset]
-        example['text'] = self.clean_text(text) # Ensure text is also cleaned
+        example['text'] = self.clean_text(text)
         return example
 
     def build_dynamic_stopset(self, corpus: Dataset, top_n: int):
@@ -88,7 +85,6 @@ class Preprocessor:
             print(f"Using {len(self.stopset)} base stopwords.")
             return [], base_stop
 
-        # Efficiently calculate frequencies on the corpus
         print(f"Calculating token frequencies from corpus to find top {top_n} dynamic stopwords...")
         freq = Counter()
         for text in tqdm(corpus['text'], desc="Corpus Freq Pass"):
@@ -102,51 +98,55 @@ class Preprocessor:
         print(f"Stopset built: {len(base_stop)} base + {len(dynamic_topN)} dynamic = {len(self.stopset)} total.")
         return sorted(list(dynamic_topN))
 
-
 # --- IO and Stats Helpers ---
-
 def write_jsonl(path: Path, dataset: Dataset, columns: List[str]):
-    """Writes a dataset object to a .jsonl file, selecting specific columns."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
         for r in tqdm(dataset, desc=f"Writing {path.name}"):
-            # Create a dictionary with only the desired columns
             row_dict = {col: r.get(col) for col in columns}
             f.write(json.dumps(row_dict, ensure_ascii=False))
             f.write("\n")
 
 def get_stats(dataset: Dataset, is_query: bool = False) -> Dict:
-    """Calculates token length and relevance statistics for a dataset."""
     stats = {}
     lens = [len(r["tokens"]) for r in dataset]
     if not lens:
         stats.update({"count": 0, "avg_tokens": 0.0, "min_tokens": 0, "max_tokens": 0})
     else:
-        stats.update({
-            "count": len(lens),
-            "avg_tokens": round(sum(lens) / len(lens), 2),
-            "min_tokens": min(lens),
-            "max_tokens": max(lens)
-        })
-
+        stats.update({"count": len(lens), "avg_tokens": round(sum(lens) / len(lens), 2), "min_tokens": min(lens), "max_tokens": max(lens)})
     if is_query:
         total_rels = sum(len(r.get("relevant_documents") or []) for r in dataset)
         with_rel = sum(1 for r in dataset if len(r.get("relevant_documents") or []) > 0)
         n = len(dataset)
-        stats["relevance"] = {
-            "queries": n,
-            "avg_rels_per_query": round(total_rels / n, 2) if n > 0 else 0,
-            "pct_with_at_least_1_rel": round(100.0 * with_rel / n, 1) if n > 0 else 0
-        }
+        stats["relevance"] = {"queries": n, "avg_rels_per_query": round(total_rels / n, 2) if n > 0 else 0, "pct_with_at_least_1_rel": round(100.0 * with_rel / n, 1) if n > 0 else 0}
     return stats
 
+
+# --- Indexing Function ---
+def build_inverted_index(processed_corpus: Dataset) -> Dict[str, List[str]]:
+    """
+    Builds a simple inverted index from the preprocessed corpus.
+    The index maps a token to a sorted list of document IDs that contain it.
+    """
+    print("\nBuilding inverted index...")
+    inverted_index = defaultdict(set)
+    
+    for doc in tqdm(processed_corpus, desc="Indexing"):
+        doc_id = doc["document_id"]
+        tokens = doc["tokens"]
+        for token in tokens:
+            inverted_index[token].add(doc_id)
+            
+    print("Finalizing index (sorting posting lists)...")
+    final_index = {token: sorted(list(doc_ids)) for token, doc_ids in inverted_index.items()}
+    
+    return final_index
+
 def parse_args():
-    # Defaults come from ENV if present
     default_config = os.environ.get("CONFIG", "eu2uk")
     default_out_dir = os.environ.get("OUT_DIR", "data/processed")
     default_top = int(os.environ.get("AUTO_STOPWORDS_TOP", "50"))
     num_procs = os.cpu_count()
-
     ap = argparse.ArgumentParser(description="Optimized preprocessing of EURegIR with NLTK.")
     ap.add_argument("--config", type=str, default=default_config, help="Dataset config (uk2eu or eu2uk)")
     ap.add_argument("--out_dir", type=str, default=default_out_dir, help="Output directory")
@@ -167,21 +167,25 @@ def main():
     print(f"Loading dataset: {DATASET_NAME}/{args.config}")
     ds = load_dataset(DATASET_NAME, args.config)
 
-    # 2. Build the combined stopword list (base + dynamic) from the corpus
+    # 2. Build the combined stopword list
     dynamic_stopwords = preprocessor.build_dynamic_stopset(ds[CORPUS_SPLIT], args.auto_stopwords_top)
 
-    # 3. Process all splits in parallel using datasets.map()
+    # 3. Process all splits in parallel
     print(f"\nProcessing all datasets using {args.num_proc} cores...")
-    
-    # We define a function for mapping to simplify the call
     processing_fn = preprocessor.process_document
-    
     corpus_processed = ds[CORPUS_SPLIT].map(processing_fn, num_proc=args.num_proc)
     train_processed = ds["train"].map(processing_fn, num_proc=args.num_proc)
     val_processed = ds["validation"].map(processing_fn, num_proc=args.num_proc)
     test_processed = ds["test"].map(processing_fn, num_proc=args.num_proc)
 
-    # 4. Write processed data to disk
+    # 4. Build and save the inverted index
+    inverted_index = build_inverted_index(corpus_processed)
+    index_path = out_dir / "inverted_index.json"
+    print(f"Saving inverted index to {index_path}...")
+    with index_path.open("w", encoding="utf-8") as f:
+        json.dump(inverted_index, f, indent=2)
+
+    # 5. Write processed data to disk
     print("\nWriting processed files...")
     write_jsonl(out_dir / "corpus.jsonl", corpus_processed, ["document_id", "publication_year", "text", "tokens"])
     query_cols = ["document_id", "publication_year", "text", "tokens", "relevant_documents"]
@@ -189,26 +193,28 @@ def main():
     write_jsonl(out_dir / "queries_val.jsonl", val_processed, query_cols)
     write_jsonl(out_dir / "queries_test.jsonl", test_processed, query_cols)
 
-    # 5. Generate and write stats
+    # 6. Generate and write stats
     stats = {
         "corpus": get_stats(corpus_processed),
         "train": get_stats(train_processed, is_query=True),
         "validation": get_stats(val_processed, is_query=True),
         "test": get_stats(test_processed, is_query=True),
         "dynamic_stopwords_added": len(dynamic_stopwords),
+        "index_stats": {
+            "unique_terms": len(inverted_index)
+        },
         "options": vars(args)
     }
-    
     (out_dir / "stats.json").write_text(json.dumps(stats, indent=2), encoding="utf-8")
     (out_dir / "dynamic_stopwords.txt").write_text("\n".join(dynamic_stopwords), encoding="utf-8")
 
     print("\n=== Done ===")
     print(f"Wrote files to: {out_dir.resolve()}")
+    print(f"  - Inverted index saved to: {index_path.name}")
     print("\nSummary:")
     print(json.dumps(stats, indent=2))
 
 if __name__ == "__main__":
-    # Ensure NLTK data exists before starting
     try:
         _ = nltk_sw.words("english")
     except LookupError:
