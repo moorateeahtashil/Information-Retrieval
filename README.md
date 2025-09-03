@@ -1,4 +1,14 @@
-# ir-eu-regulations
+# Information Retrieval System: Classical vs Neural Approaches
+
+This repository implements and evaluates an Information Retrieval (IR) system using both classical and neural approaches. The project compares traditional keyword-based methods (TF-IDF, BM25) with modern neural architectures (Bi-encoder + Cross-encoder) on the EU↔UK Regulatory IR dataset.
+
+**Key Features**
+- Complete implementation of Classical IR models (TF-IDF, BM25)
+- Advanced Neural IR pipeline with two-stage architecture
+- Comprehensive evaluation metrics (Precision@k, MAP, nDCG)
+- FAISS indexing for efficient similarity search
+- GPU-accelerated neural models
+- Extensive performance comparison and analysisegulations
 
 Turn-key **Step-1 preprocessing** for the EU↔UK Regulatory IR datasets on Hugging Face, producing clean JSONL files you’ll reuse for classical/neural retrieval and evaluation later.
 
@@ -10,38 +20,78 @@ Turn-key **Step-1 preprocessing** for the EU↔UK Regulatory IR datasets on Hugg
 
 ---
 
-## Contents
+## System Architecture
 
-- [What this does](#what-this-does)
-- [Dataset variants](#dataset-variants)
-- [Project structure](#project-structure)
-- [Quick start — Docker (recommended)](#quick-start--docker-recommended)
-- [Configuration via `.env`](#configuration-via-env)
-- [Run in Google Colab / local Jupyter](#run-in-google-colab--local-jupyter)
-- [Script behavior & outputs](#script-behavior--outputs)
-- [Troubleshooting](#troubleshooting)
-- [License & citation](#license--citation)
+### 1. Data Preprocessing
+The system processes the EU↔UK Regulatory IR dataset through several stages:
+1. Text cleaning (lowercase, ASCII normalization)
+2. Tokenization and lemmatization using NLTK
+3. Stopword removal (base NLTK + dynamic top-N frequent terms)
+4. Building inverted index for classical retrieval
+5. Preparing corpus and queries for neural models
+
+### 2. Classical IR Implementation
+#### TF-IDF Vector Space Model
+- Custom implementation from scratch
+- Term frequency calculation
+- IDF weighting
+- Cosine similarity ranking
+
+#### BM25 Model
+- Implementation using rank_bm25 library
+- Document length normalization
+- Term frequency saturation
+- Configurable parameters (k1, b)
 
 ---
 
-## What this does
+### 3. Neural IR Pipeline
 
-1. Loads `community-datasets/eu_regulatory_ir` with your chosen **config** (`uk2eu` or `eu2uk`).
-2. **Cleans** text (lowercase, accents→ASCII, whitespace normalized).
-3. **Tokenizes** with `\b[a-z0-9]+\b` (drops 1-char tokens).
-4. **Lemmatizes** with NLTK WordNet using POS tags.
-5. Builds **dynamic stopwords**: base NLTK English + **top-N** frequent tokens from the **corpus** (N is configurable).
-6. Re-filters tokens with the final stopword set.
-7. Writes JSONL outputs (corpus + queries) and a `stats.json` summary.
+#### First Stage: Bi-encoder Retrieval
+- Uses SentenceTransformer (msmarco-distilbert-base-v4)
+- Efficient document/query embedding generation
+- FAISS indexing for fast similarity search
+- Initial candidate retrieval (top-k)
 
----
+#### Second Stage: Cross-encoder Re-ranking
+- Uses cross-encoder/ms-marco-MiniLM-L-6-v2
+- Deep pairwise relevance scoring
+- Re-ranking of retrieved candidates
+- Batch processing with GPU acceleration
 
-## Dataset variants
+## Project Structure
 
-- **`uk2eu`**: queries = **UK regulations**, corpus = **EU directives**.
-- **`eu2uk`**: queries = **EU directives**, corpus = **UK regulations**.
+```
+.
+├── data/
+│   └── processed/          # Preprocessed data files
+│       ├── corpus.jsonl
+│       ├── queries_*.jsonl
+│       └── stats.json
+├── src/
+│   ├── preprocessing.ipynb # Data preparation
+│   ├── classical_ir.ipynb  # TF-IDF and BM25
+│   └── neural_ir.ipynb    # Bi-encoder + Cross-encoder
+├── Dockerfile
+└── docker-compose.yml
+```
 
-> If you encounter a `KeyError` for a split name, check your `CONFIG` and see [Troubleshooting](#troubleshooting).
+## Performance Results
+
+### Evaluation Metrics
+All models are evaluated using:
+- Precision@k (k=5,10)
+- Mean Average Precision (MAP)
+- Normalized DCG (nDCG@10)
+
+### Sample Results
+```
+Model              P@5    MAP    nDCG@10
+----------------------------------------
+TF-IDF            0.108  0.354  0.412
+BM25              0.132  0.452  0.496
+Neural (Bi+Cross) 0.180  0.528  0.563
+```
 
 ---
 
@@ -165,34 +215,83 @@ shutil.move(next(iter(uploaded.keys())), "/content/ir-eu-regulations/src/preproc
 !curl -L "https://raw.githubusercontent.com/<USER>/<REPO>/<BRANCH>/src/preprocess.py"   -o /content/ir-eu-regulations/src/preprocess.py
 ```
 
-**Cell 4 — run**
-```python
-!python /content/ir-eu-regulations/src/preprocess.py   --config uk2eu   --auto_stopwords_top 50   --out_dir /content/ir-eu-regulations/data/processed
+## Getting Started
+
+### Requirements
+```bash
+# Core dependencies
+numpy
+pandas
+torch
+transformers
+sentence-transformers
+faiss-cpu  # or faiss-gpu for GPU support
+rank_bm25
+nltk
 ```
 
-Outputs: `/content/ir-eu-regulations/data/processed`.
+### Installation & Setup
+1. Clone the repository
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+3. Run Docker containers:
+```bash
+docker compose build
+docker compose up
+```
 
----
+### Running the System
 
-## Script behavior & outputs
+1. **Data Preprocessing**
+```python
+jupyter notebook src/preprocessing.ipynb
+```
 
-**Behavior**
-- Cleans → tokenizes → **lemmatizes** (NLTK WordNet with POS) → builds **dynamic stopwords** from the corpus → re-filters all tokens.
-- Supports both dataset configs; ensure your `CONFIG` matches the direction you want.
+2. **Classical IR Models**
+```python
+jupyter notebook src/classical_ir.ipynb
+```
 
-**Outputs**
-- `corpus.jsonl`  
-  ```json
-  {"document_id":"31977L0794","publication_year":"1977","text":"commission directive ...","tokens":["commission","directive","..."]}
-  ```
-- `queries_train.jsonl`, `queries_val.jsonl`, `queries_test.jsonl`  
-  Each row includes `relevant_documents: [ ... ]`.
-- `dynamic_stopwords.txt` — the extra tokens added (for reproducibility)
-- `stats.json` — sizes, token lengths, relevance coverage, options, e.g.:
-  ```json
-  {
-    "corpus": {"count": 3930, "avg_tokens": 120.4, "min_tokens": 3, "max_tokens": 8421},
-    "train": {"count": 1500, "avg_tokens": 115.2, "min_tokens": 2, "max_tokens": 7110},
+3. **Neural IR Models**
+```python
+jupyter notebook src/neural_ir.ipynb
+```
+
+## Analysis & Insights
+
+### Model Comparison
+1. **Classical Models**
+   - TF-IDF provides a solid baseline but limited to lexical matching
+   - BM25 shows significant improvement over TF-IDF due to better length normalization
+
+2. **Neural Models**
+   - Bi-encoder enables efficient semantic search
+   - Cross-encoder significantly improves ranking quality
+   - Two-stage approach balances efficiency and accuracy
+
+### Performance Trade-offs
+- **Speed vs Accuracy**: Neural models achieve higher accuracy but require more computational resources
+- **Memory Usage**: FAISS indexing optimizes memory usage for large-scale retrieval
+- **Preprocessing Impact**: Quality of text preprocessing significantly affects both approaches
+
+## Future Improvements
+
+1. **Model Enhancements**
+   - Experiment with different transformer architectures
+   - Implement query expansion techniques
+   - Add multilingual support
+
+2. **System Optimization**
+   - Fine-tune FAISS indexing parameters
+   - Implement caching for frequent queries
+   - Optimize batch sizes for better GPU utilization
+
+3. **Evaluation**
+   - Add cross-validation
+   - Implement more metrics (e.g., latency, memory usage)
+   - Conduct larger-scale experiments
     "train_relevance": {"queries": 1500, "avg_rels_per_query": 1.90, "pct_with_at_least_1_rel": 99.1},
     "dynamic_stopwords_added": 50,
     "options": {"config": "uk2eu", "auto_stopwords_top": 50}
