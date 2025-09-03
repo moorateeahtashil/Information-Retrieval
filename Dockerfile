@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir datasets nltk tqdm unidecode
+RUN pip install sentence-transformers faiss-cpu torch
 
 # Pre-fetch NLTK models so the container can run offline
 RUN python - << 'PY'

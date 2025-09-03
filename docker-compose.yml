@@ -16,3 +16,25 @@ services:
       --config ${CONFIG}
       --auto_stopwords_top ${AUTO_STOPWORDS_TOP}
       --out_dir ${OUT_DIR}
+  neural-ir:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ir-eu-regulations:latest
+    volumes:
+      - ./src:/app/src:ro
+      - ./data:/app/data
+      - ./cache/huggingface:/root/.cache/huggingface
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TOKENIZERS_PARALLELISM=false
+      - HF_HOME=/root/.cache/huggingface
+      - TRANSFORMERS_CACHE=/root/.cache/huggingface
+    tty: true
+    command: >
+      python -u /app/src/neural_ir.py
+      --data_dir /app/data/processed
+      --split validation
+      --bi_model sentence-transformers/all-MiniLM-L6-v2
+      --cross_model cross-encoder/ms-marco-MiniLM-L-6-v2
+      --top_k 100 --rerank_k 20
