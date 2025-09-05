@@ -199,19 +199,6 @@ $env:OUT_DIR="/app/data/eu2uk_run"
 docker compose run --rm preprocess
 ```
 
----
-
-## Configuration via `.env`
-
-| Variable              | Description                                                    | Example                 |
-|-----------------------|----------------------------------------------------------------|-------------------------|
-| `CONFIG`              | Dataset direction                                              | `uk2eu` \| `eu2uk`     |
-| `AUTO_STOPWORDS_TOP`  | Add top-N frequent corpus tokens to stopwords                 | `50`                    |
-| `OUT_DIR`             | Output path **inside container** (mapped to `./data`)         | `/app/data/processed`   |
-
-You can always override these per run via environment variables (see above).
-
----
 
 ## Run in Google Colab / local Jupyter
 
