@@ -358,13 +358,5 @@ jupyter notebook src/neural_ir.ipynb
 
 ---
 
-## License & citation
-
-- Code: choose an OSS license (e.g., MIT) for this repository.
-- Data: **EU Regulatory IR (EU2UK / UK2EU)** from Hugging Face (`community-datasets/eu_regulatory_ir`).  
-  Please consult the dataset card for licensing and citation and cite the authors in any publications.
-
----
-
 **Questions / improvements?**  
 Open an issue or PR with your suggestions (e.g., spaCy lemmatization, section-number joining, passage chunking for neural IR).
