@@ -38,7 +38,6 @@ Turn-key **Step-1 preprocessing** for the EU↔UK Regulatory IR datasets on Hugg
 **Highlights**
 - POS-aware **NLTK lemmatization**
 - **Dynamic stopwords**: add top-N most frequent corpus tokens (configurable)
-- Works for both dataset directions: `uk2eu` and `eu2uk`
 - Dockerized for repeatability + Colab/Jupyter path for notebooks
 
 ---
@@ -149,19 +148,6 @@ ir-eu-regulations/
 ### 0) Prereqs
 - Docker Desktop / Engine with Compose v2
 
-### 1) Configure `.env`
-Create a `.env` file next to `docker-compose.yml`:
-
-```env
-# Dataset configuration (choose one)
-CONFIG=uk2eu         # or eu2uk
-
-# Dynamic stopwords: add top-N frequent tokens from the corpus
-AUTO_STOPWORDS_TOP=50
-
-# Output directory inside the container (bind-mapped to ./data)
-OUT_DIR=/app/data/processed
-```
 
 ### 2) Build
 ```bash
@@ -185,20 +171,6 @@ stats.json
 ```
 
 ### 4) Override on the fly (no YAML edits)
-
-**macOS/Linux**
-```bash
-CONFIG=eu2uk AUTO_STOPWORDS_TOP=30 OUT_DIR=/app/data/eu2uk_run docker compose run --rm preprocess
-```
-
-**Windows PowerShell**
-```powershell
-$env:CONFIG="eu2uk"
-$env:AUTO_STOPWORDS_TOP="30"
-$env:OUT_DIR="/app/data/eu2uk_run"
-docker compose run --rm preprocess
-```
-
 
 ## Run in Google Colab / local Jupyter
 
@@ -329,16 +301,6 @@ jupyter notebook src/neural_ir.ipynb
 
 ## Troubleshooting
 
-- **`KeyError: 'eu_corpus'` or `'uk_corpus'`**  
-  You’re likely using the opposite config for that split name. Set `CONFIG=uk2eu` (corpus=`eu_corpus`) or `CONFIG=eu2uk` (corpus=`uk_corpus`).  
-  If you still see this, print available splits:
-  ```bash
-  python - <<'PY'
-  from datasets import load_dataset
-  ds = load_dataset("community-datasets/eu_regulatory_ir", "uk2eu")  # or eu2uk
-  print(list(ds.keys()))
-  PY
-  ```
 
 - **Missing NLTK data (local/Colab)**  
   Run the downloads in the setup cell:
