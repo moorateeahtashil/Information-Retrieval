@@ -1,6 +1,29 @@
-# Information Retrieval System: Classical vs Neural Approaches
+# Text Retrieval Assignment: Classical vs Neural Approaches
 
-This repository implements and evaluates an Information Retrieval (IR) system using both classical and neural approaches. The project compares traditional keyword-based methods (TF-IDF, BM25) with modern neural architectures (Bi-encoder + Cross-encoder) on the EU↔UK Regulatory IR dataset.
+This repository implements and evaluates an Information Retrieval (IR) system using both classical and neural approaches. The project compares traditional keyword-based methods (TF-IDF, BM25) with modern neural architectu### Analysis & Insights
+
+### Model Comparison in Financial Domain
+1. **Classical Models**
+   - TF-IDF provides a solid baseline but struggles with financial terminology variations
+   - BM25 shows significant improvement due to better handling of domain-specific terms and document lengths
+   - Both models limited in understanding semantic relationships between financial concepts
+
+2. **Neural Models**
+   - Bi-encoder effectively captures semantic relationships in financial text
+   - Cross-encoder excels at understanding complex financial query-document relationships
+   - Two-stage approach provides optimal balance for financial information retrieval
+   - Better handling of financial terminology and domain-specific conceptsoder + Cross-encoder) on the FiQA-2018 Financial Domain Question Answering dataset.
+
+## Dataset: FiQA-2018
+
+The project uses the [FiQA-2018 dataset](https://huggingface.co/datasets/mteb/fiqa/viewer/corpus) from the Financial Domain Question Answering challenge. This dataset consists of:
+
+- **Domain**: Financial domain text from StackExchange posts and other financial web sources
+- **Content**: Questions and answers about financial topics, including professional financial advice
+- **Size**: 
+  - Questions: Contains financial domain questions
+  - Answers/Documents: Financial expert responses and relevant text passages
+- **Source**: Available through Hugging Face datasets
 
 **Key Features**
 - Complete implementation of Classical IR models (TF-IDF, BM25)
@@ -23,12 +46,18 @@ Turn-key **Step-1 preprocessing** for the EU↔UK Regulatory IR datasets on Hugg
 ## System Architecture
 
 ### 1. Data Preprocessing
-The system processes the EU↔UK Regulatory IR dataset through several stages:
+The system processes the FiQA-2018 Financial QA dataset through several stages:
 1. Text cleaning (lowercase, ASCII normalization)
-2. Tokenization and lemmatization using NLTK
-3. Stopword removal (base NLTK + dynamic top-N frequent terms)
-4. Building inverted index for classical retrieval
-5. Preparing corpus and queries for neural models
+2. Financial domain-specific text preprocessing
+   - Special handling of financial terms and symbols
+   - Preservation of numerical values and currencies
+3. Tokenization and lemmatization using NLTK
+4. Domain-aware stopword removal
+   - Base NLTK stopwords
+   - Custom financial domain stopwords
+   - Dynamic top-N frequent terms
+5. Building inverted index for classical retrieval
+6. Preparing corpus and queries for neural models
 
 ### 2. Classical IR Implementation
 #### TF-IDF Vector Space Model
@@ -62,12 +91,16 @@ The system processes the EU↔UK Regulatory IR dataset through several stages:
 ## Project Structure
 
 ```
-.
+Text-Retrieval-Assignment/
 ├── data/
 │   └── processed/          # Preprocessed data files
-│       ├── corpus.jsonl
-│       ├── queries_*.jsonl
-│       └── stats.json
+│       ├── corpus.jsonl    # Processed FiQA corpus
+│       ├── queries_*.jsonl # Train/val/test query splits
+│       └── stats.json      # Dataset statistics
+├── fiqa/                   # Original FiQA dataset
+│   ├── corpus.jsonl       # Raw corpus data
+│   ├── queries.jsonl      # Raw queries
+│   └── processed_data/    # Intermediate processing
 ├── src/
 │   ├── preprocessing.ipynb # Data preparation
 │   ├── classical_ir.ipynb  # TF-IDF and BM25
@@ -278,20 +311,27 @@ jupyter notebook src/neural_ir.ipynb
 
 ## Future Improvements
 
-1. **Model Enhancements**
-   - Experiment with different transformer architectures
-   - Implement query expansion techniques
-   - Add multilingual support
+1. **Financial Domain Specialization**
+   - Fine-tune models on larger financial corpora
+   - Incorporate financial entity recognition
+   - Add support for numerical reasoning and comparison
+   - Implement financial domain-specific query expansion
 
-2. **System Optimization**
-   - Fine-tune FAISS indexing parameters
-   - Implement caching for frequent queries
+2. **Model Enhancements**
+   - Experiment with finance-specialized transformer models
+   - Implement financial keyword boosting
+   - Add support for temporal financial data
+
+3. **System Optimization**
+   - Fine-tune FAISS indexing for financial text characteristics
+   - Implement caching for frequent financial queries
    - Optimize batch sizes for better GPU utilization
 
-3. **Evaluation**
-   - Add cross-validation
-   - Implement more metrics (e.g., latency, memory usage)
-   - Conduct larger-scale experiments
+4. **Evaluation**
+   - Add finance-specific evaluation metrics
+   - Implement temporal evaluation (considering data freshness)
+   - Conduct larger-scale experiments with diverse financial queries
+   - Evaluate system performance on different financial sub-domains
     "train_relevance": {"queries": 1500, "avg_rels_per_query": 1.90, "pct_with_at_least_1_rel": 99.1},
     "dynamic_stopwords_added": 50,
     "options": {"config": "uk2eu", "auto_stopwords_top": 50}
