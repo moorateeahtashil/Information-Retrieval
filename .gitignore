@@ -28,3 +28,4 @@ datasets/
 *.onnx
 *.pkl
 .ipynb_checkpoints/
+corpus_embeddings.npy
